@@ -1,55 +1,55 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #0f1117;
-  --surface: #1a1d27;
-  --surface2: #22263a;
-  --accent: #c8a96e;
-  --accent2: #e8c98e;
-  --danger: #e07070;
-  --success: #6ec8a0;
-  --text: #eee8da;
-  --muted: #7a7d8e;
-  --border: rgba(200, 169, 110, 0.15);
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --accent: #c8a96e;
+    --accent2: #e8c98e;
+    --danger: #e07070;
+    --success: #6ec8a0;
+    --text: #eee8da;
+    --muted: #7a7d8e;
+    --border: rgba(200, 169, 110, 0.15);
 }
 
 * {
-  -webkit-tap-highlight-color: transparent;
+    -webkit-tap-highlight-color: transparent;
 }
 
 body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-dm-sans), sans-serif;
-  min-height: 100vh;
-  min-height: 100dvh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-dm-sans), sans-serif;
+    min-height: 100vh;
+    min-height: 100dvh;
 }
 
 .font-serif {
-  font-family: var(--font-dm-serif), serif;
+    font-family: var(--font-dm-serif), serif;
 }
 
 /* Smooth scrolling */
 html {
-  scroll-behavior: smooth;
+    scroll-behavior: smooth;
 }
 
 /* Remove default input styles on iOS */
 input,
 select,
 textarea {
-  -webkit-appearance: none;
-  appearance: none;
+    -webkit-appearance: none;
+    appearance: none;
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 4px;
+    width: 4px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--surface);
+    background: var(--surface);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--surface2);
-  border-radius: 2px;
+    background: var(--surface2);
+    border-radius: 2px;
 }
