@@ -6,6 +6,9 @@ import {
     getPermissionStatus,
     sendTestNotification,
     registerServiceWorker,
+    subscribeToPush,
+    unsubscribeFromPush,
+    getExistingSubscription,
     getSavedNotifyTime,
     saveNotifyTime,
     formatTime12h,
@@ -18,7 +21,6 @@ interface NotificationPanelProps {
     onClose: () => void;
 }
 
-// Quick-pick presets for common times
 const TIME_PRESETS = [
     { label: "7 AM", value: "07:00" },
     { label: "8 AM", value: "08:00" },
@@ -35,25 +37,50 @@ export default function NotificationPanel({
     const [permission, setPermission] = React.useState<
         NotificationPermission | "unsupported"
     >(() => getPermissionStatus());
+    const [subscribed, setSubscribed] = React.useState(false);
     const [swReady, setSwReady] = React.useState(false);
+    const [loading, setLoading] = React.useState(false);
     const [testSent, setTestSent] = React.useState(false);
-    const [notifyTime, setNotifyTime] = React.useState<string>(DEFAULT_NOTIFY_TIME);
+    const [notifyTime, setNotifyTime] =
+        React.useState<string>(DEFAULT_NOTIFY_TIME);
     const [timeSaved, setTimeSaved] = React.useState(false);
 
     React.useEffect(() => {
         registerServiceWorker().then(reg => setSwReady(!!reg));
         setNotifyTime(getSavedNotifyTime());
+        // Check if already subscribed
+        getExistingSubscription().then(sub => setSubscribed(!!sub));
     }, []);
 
     const handleEnable = async () => {
-        const result = await requestNotificationPermission();
-        setPermission(result);
+        setLoading(true);
+        try {
+            const sub = await subscribeToPush();
+            if (sub) {
+                setSubscribed(true);
+                setPermission("granted");
+            } else {
+                // Permission was denied
+                setPermission(getPermissionStatus());
+            }
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleTest = () => {
+    const handleDisable = async () => {
+        setLoading(true);
+        try {
+            await unsubscribeFromPush();
+            setSubscribed(false);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleTest = async () => {
         if (bills.length === 0) return;
-        const bill = bills[0];
-        sendTestNotification(bill.name, bill.amount);
+        await sendTestNotification(bills[0].name, bills[0].amount);
         setTestSent(true);
         setTimeout(() => setTestSent(false), 3000);
     };
@@ -66,20 +93,29 @@ export default function NotificationPanel({
     };
 
     const statusColor =
-        permission === "granted"
+        subscribed && permission === "granted"
             ? "var(--success)"
             : permission === "denied"
               ? "var(--danger)"
-              : "var(--accent)";
+              : permission === "unsupported"
+                ? "var(--muted)"
+                : "var(--accent)";
 
     const statusLabel =
-        permission === "granted"
-            ? "Notifications Enabled ✓"
+        subscribed && permission === "granted"
+            ? "Push Notifications Active ✓"
             : permission === "denied"
               ? "Notifications Blocked"
               : permission === "unsupported"
-                ? "Not Supported"
+                ? "Not Supported on this device"
                 : "Notifications Off";
+
+    const statusSub =
+        subscribed && swReady
+            ? "Reminders will arrive even when the app is closed"
+            : swReady
+              ? "Service worker ready — tap Enable below"
+              : "Service worker not registered";
 
     return (
         <div
@@ -131,8 +167,8 @@ export default function NotificationPanel({
                         color: "var(--muted)",
                         marginBottom: 24,
                     }}>
-                    Get reminders before your bills are due. Works on iOS via
-                    Safari &ldquo;Add to Home Screen&rdquo;.
+                    True push notifications — reminders arrive even when the app
+                    is fully closed.
                 </p>
 
                 {/* Status pill */}
@@ -162,9 +198,7 @@ export default function NotificationPanel({
                                 color: "var(--muted)",
                                 marginTop: 2,
                             }}>
-                            {swReady
-                                ? "Service worker active"
-                                : "Service worker not registered"}
+                            {statusSub}
                         </div>
                     </div>
                     <div
@@ -178,7 +212,7 @@ export default function NotificationPanel({
                     />
                 </div>
 
-                {/* ── REMINDER TIME ── */}
+                {/* Reminder time picker */}
                 <div
                     style={{
                         background: "var(--surface2)",
@@ -228,7 +262,6 @@ export default function NotificationPanel({
                                 )}
                             </div>
                         </div>
-                        {/* Native time input — shows system time picker on iOS */}
                         <input
                             type='time'
                             value={notifyTime}
@@ -248,8 +281,6 @@ export default function NotificationPanel({
                             }}
                         />
                     </div>
-
-                    {/* Quick-pick preset buttons */}
                     <div
                         style={{
                             display: "grid",
@@ -265,11 +296,7 @@ export default function NotificationPanel({
                                         notifyTime === preset.value
                                             ? "rgba(200,169,110,0.2)"
                                             : "var(--surface)",
-                                    border: `1px solid ${
-                                        notifyTime === preset.value
-                                            ? "var(--accent)"
-                                            : "var(--border)"
-                                    }`,
+                                    border: `1px solid ${notifyTime === preset.value ? "var(--accent)" : "var(--border)"}`,
                                     borderRadius: 8,
                                     padding: "6px 2px",
                                     color:
@@ -338,31 +365,18 @@ export default function NotificationPanel({
                             </strong>
                         </li>
                         <li>Open the app from your home screen</li>
-                        <li>Enable notifications below</li>
+                        <li>
+                            Tap{" "}
+                            <strong style={{ color: "var(--text)" }}>
+                                Enable Notifications
+                            </strong>{" "}
+                            below
+                        </li>
                     </ol>
                 </div>
 
-                {permission !== "granted" && permission !== "denied" && (
-                    <button
-                        onClick={handleEnable}
-                        style={{
-                            width: "100%",
-                            background: "var(--accent)",
-                            color: "#0f1117",
-                            border: "none",
-                            borderRadius: 14,
-                            padding: 16,
-                            fontSize: 16,
-                            fontWeight: 600,
-                            fontFamily: "var(--font-dm-sans)",
-                            cursor: "pointer",
-                            marginBottom: 12,
-                        }}>
-                        Enable Notifications
-                    </button>
-                )}
-
-                {permission === "denied" && (
+                {/* Enable / Disable button */}
+                {permission === "denied" ? (
                     <div
                         style={{
                             background: "rgba(224,112,112,0.1)",
@@ -374,12 +388,56 @@ export default function NotificationPanel({
                             marginBottom: 12,
                             textAlign: "center",
                         }}>
-                        Notifications are blocked. Please enable them in your
-                        device Settings → Safari → Notifications.
+                        Notifications are blocked. Go to Settings → Safari →
+                        Notifications to re-enable.
                     </div>
+                ) : subscribed ? (
+                    <button
+                        onClick={handleDisable}
+                        disabled={loading}
+                        style={{
+                            width: "100%",
+                            background: "rgba(224,112,112,0.12)",
+                            color: "var(--danger)",
+                            border: "1px solid var(--danger)",
+                            borderRadius: 14,
+                            padding: 14,
+                            fontSize: 15,
+                            fontWeight: 500,
+                            fontFamily: "var(--font-dm-sans)",
+                            cursor: loading ? "wait" : "pointer",
+                            marginBottom: 12,
+                            opacity: loading ? 0.6 : 1,
+                        }}>
+                        {loading ? "Disabling…" : "Disable Notifications"}
+                    </button>
+                ) : (
+                    <button
+                        onClick={handleEnable}
+                        disabled={loading || permission === "unsupported"}
+                        style={{
+                            width: "100%",
+                            background: "var(--accent)",
+                            color: "#0f1117",
+                            border: "none",
+                            borderRadius: 14,
+                            padding: 16,
+                            fontSize: 16,
+                            fontWeight: 600,
+                            fontFamily: "var(--font-dm-sans)",
+                            cursor: loading ? "wait" : "pointer",
+                            marginBottom: 12,
+                            opacity:
+                                loading || permission === "unsupported"
+                                    ? 0.6
+                                    : 1,
+                        }}>
+                        {loading ? "Enabling…" : "Enable Notifications"}
+                    </button>
                 )}
 
-                {permission === "granted" && bills.length > 0 && (
+                {/* Test button */}
+                {subscribed && permission === "granted" && bills.length > 0 && (
                     <button
                         onClick={handleTest}
                         style={{

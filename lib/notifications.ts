@@ -2,7 +2,7 @@
 
 import type { Bill } from './types';
 
-export const STORAGE_NOTIFY_TIME = 'owed_notify_time'; // "HH:MM" 24hr
+export const STORAGE_NOTIFY_TIME = 'owed_notify_time';
 export const DEFAULT_NOTIFY_TIME = '09:00';
 
 export function getSavedNotifyTime(): string {
@@ -14,15 +14,33 @@ export function saveNotifyTime(time: string) {
     localStorage.setItem(STORAGE_NOTIFY_TIME, time);
 }
 
+export function getPermissionStatus(): NotificationPermission | 'unsupported' {
+    if (typeof window === 'undefined' || !('Notification' in window))
+        return 'unsupported';
+    return Notification.permission;
+}
+
+// ─── Service Worker ───────────────────────────────────────────────────────────
+
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
     if (!('serviceWorker' in navigator)) return null;
     try {
-        const reg = await navigator.serviceWorker.register('/sw.js');
-        return reg;
+        return await navigator.serviceWorker.register('/sw.js');
     } catch (e) {
         console.error('SW registration failed:', e);
         return null;
     }
+}
+
+// ─── Push Subscription ───────────────────────────────────────────────────────
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding)
+        .replace(/-/g, '+')
+        .replace(/_/g, '/');
+    const rawData = atob(base64);
+    return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
 }
 
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
@@ -32,65 +50,93 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
     return await Notification.requestPermission();
 }
 
-export function getPermissionStatus(): NotificationPermission | 'unsupported' {
-    if (typeof window === 'undefined' || !('Notification' in window))
-        return 'unsupported';
-    return Notification.permission;
+export async function subscribeToPush(): Promise<PushSubscription | null> {
+    const reg = await registerServiceWorker();
+    if (!reg) return null;
+
+    const permission = await requestNotificationPermission();
+    if (permission !== 'granted') return null;
+
+    try {
+        const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
+        const sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapidKey),
+        });
+
+        // Save subscription to Supabase via API route
+        await fetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sub.toJSON()),
+        });
+
+        return sub;
+    } catch (e) {
+        console.error('Push subscription failed:', e);
+        return null;
+    }
 }
 
-export function scheduleBillReminders(bills: Bill[], monthKey: string) {
-    if (typeof window === 'undefined') return;
-    if (!('Notification' in window)) return;
-    if (Notification.permission !== 'granted') return;
+export async function unsubscribeFromPush(): Promise<void> {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (!reg) return;
 
-    const today = new Date();
-    const [year, month] = monthKey.split('-').map(Number);
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) return;
 
-    const savedTime = getSavedNotifyTime();
-    const [prefHour, prefMinute] = savedTime.split(':').map(Number);
-
-    bills.forEach(bill => {
-        // Skip bills that don't belong to this month view
-        if (bill.recurrence === 'once' && bill.monthKey !== monthKey) return;
-        if (bill.recurrence === 'yearly' && bill.dueMonth !== month) return;
-
-        // Build the fire date: due day minus the advance notice, at the chosen time
-        const notifyDate = new Date(
-            year,
-            month,
-            bill.dueDay - bill.notifyDaysBefore,
-        );
-        notifyDate.setHours(prefHour, prefMinute, 0, 0);
-
-        const msUntilNotify = notifyDate.getTime() - today.getTime();
-
-        // Only schedule if it fires in the future and within the next 7 days
-        if (msUntilNotify > 0 && msUntilNotify < 7 * 24 * 60 * 60 * 1000) {
-            setTimeout(() => {
-                const body =
-                    bill.notifyDaysBefore === 0
-                        ? `${bill.name} is due today — $${bill.amount.toFixed(2)}`
-                        : `${bill.name} is due in ${bill.notifyDaysBefore} day${bill.notifyDaysBefore > 1 ? 's' : ''} — $${bill.amount.toFixed(2)}`;
-
-                new Notification('💳 Bill Reminder', {
-                    body,
-                    tag: bill.id,
-                });
-            }, msUntilNotify);
-        }
+    // Remove from Supabase first
+    await fetch('/api/push/unsubscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: sub.endpoint }),
     });
+
+    await sub.unsubscribe();
 }
 
-export function sendTestNotification(billName: string, amount: number) {
-    if (!('Notification' in window)) return;
-    if (Notification.permission !== 'granted') return;
-    new Notification('💳 Bill Reminder', {
+export async function getExistingSubscription(): Promise<PushSubscription | null> {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (!reg) return null;
+    return reg.pushManager.getSubscription();
+}
+
+// ─── Bill Sync ────────────────────────────────────────────────────────────────
+
+/** Call this whenever bills change so the cron job has the latest schedule */
+export async function syncBillsToServer(bills: Bill[]): Promise<void> {
+    const sub = await getExistingSubscription();
+    if (!sub) return; // not subscribed to push, nothing to sync
+
+    try {
+        await fetch('/api/push/sync-bills', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint: sub.endpoint, bills }),
+        });
+    } catch (e) {
+        console.error('Bill sync failed:', e);
+    }
+}
+
+// ─── Test notification (still useful for immediate feedback) ─────────────────
+
+export async function sendTestNotification(
+    billName: string,
+    amount: number,
+): Promise<void> {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (!reg) return;
+
+    // Use showNotification via the service worker so it works even on iOS PWA
+    await reg.showNotification('💳 Bill Reminder', {
         body: `${billName} is due soon — $${amount.toFixed(2)}`,
         tag: 'test-notification',
     });
 }
 
-// Format "09:00" → "9:00 AM", "14:30" → "2:30 PM"
+// ─── Format helpers ───────────────────────────────────────────────────────────
+
 export function formatTime12h(time24: string): string {
     const [h, m] = time24.split(':').map(Number);
     const ampm = h < 12 ? 'AM' : 'PM';

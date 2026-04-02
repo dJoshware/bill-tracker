@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useBills, usePaid } from "@/hooks/useBills";
 import BillCard from "@/components/BillCard";
 import BillForm from "@/components/BillForm";
@@ -37,29 +37,27 @@ function getViewMonth(offset: number) {
 }
 
 export default function HomePage() {
-    const [monthOffset, setMonthOffset] = React.useState(0);
+    const [monthOffset, setMonthOffset] = useState(0);
     const { year, month } = getViewMonth(monthOffset);
     const monthKey = getMonthKey(year, month);
 
     const { bills, loaded, addBill, updateBill, deleteBill } = useBills();
     const { paid, togglePaid } = usePaid(monthKey);
 
-    const [showForm, setShowForm] = React.useState(false);
-    const [editBill, setEditBill] = React.useState<Bill | null>(null);
-    const [showNotif, setShowNotif] = React.useState(false);
-    const [toast, setToast] = React.useState("");
-    const [filterCat, setFilterCat] = React.useState<string>("all");
-    const [sortBy, setSortBy] = React.useState<"due" | "amount" | "name">(
-        "due",
-    );
+    const [showForm, setShowForm] = useState(false);
+    const [editBill, setEditBill] = useState<Bill | null>(null);
+    const [showNotif, setShowNotif] = useState(false);
+    const [toast, setToast] = useState("");
+    const [filterCat, setFilterCat] = useState<string>("all");
+    const [sortBy, setSortBy] = useState<"due" | "amount" | "name">("due");
 
     // Register SW on mount
-    React.useEffect(() => {
+    useEffect(() => {
         registerServiceWorker();
     }, []);
 
     // Schedule reminders when bills change
-    React.useEffect(() => {
+    useEffect(() => {
         if (bills.length > 0) {
             scheduleBillReminders(bills, monthKey);
         }
@@ -71,7 +69,7 @@ export default function HomePage() {
     };
 
     // Visible bills for this month
-    const visibleBills = React.useMemo(() => {
+    const visibleBills = useMemo(() => {
         let filtered = bills.filter(b => billVisibleInMonth(b, monthKey));
         if (filterCat !== "all")
             filtered = filtered.filter(b => b.category === filterCat);
@@ -83,7 +81,7 @@ export default function HomePage() {
     }, [bills, monthKey, filterCat, sortBy]);
 
     // Summary
-    const { total, paidTotal, remaining } = React.useMemo(() => {
+    const { total, paidTotal, remaining } = useMemo(() => {
         const allMonthBills = bills.filter(b =>
             billVisibleInMonth(b, monthKey),
         );
@@ -159,7 +157,7 @@ export default function HomePage() {
                                 color: "var(--accent)",
                                 lineHeight: 1,
                             }}>
-                            Owed
+                            Billfold
                         </div>
                         <div
                             style={{
@@ -169,7 +167,7 @@ export default function HomePage() {
                                 letterSpacing: "0.04em",
                                 textTransform: "uppercase",
                             }}>
-                            Track Your Bills
+                            Personal Finance
                         </div>
                     </div>
 
