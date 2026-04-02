@@ -46,14 +46,15 @@ export function scheduleBillReminders(bills: Bill[], monthKey: string) {
     const today = new Date();
     const [year, month] = monthKey.split('-').map(Number);
 
-    // Parse the saved preferred time (e.g. "09:00")
     const savedTime = getSavedNotifyTime();
     const [prefHour, prefMinute] = savedTime.split(':').map(Number);
 
     bills.forEach(bill => {
-        if (!bill.recurrence && bill.monthKey !== monthKey) return;
+        // Skip bills that don't belong to this month view
+        if (bill.recurrence === 'once' && bill.monthKey !== monthKey) return;
+        if (bill.recurrence === 'yearly' && bill.dueMonth !== month) return;
 
-        // Build the notification date at the user's preferred time
+        // Build the fire date: due day minus the advance notice, at the chosen time
         const notifyDate = new Date(
             year,
             month,
@@ -63,7 +64,7 @@ export function scheduleBillReminders(bills: Bill[], monthKey: string) {
 
         const msUntilNotify = notifyDate.getTime() - today.getTime();
 
-        // Only schedule if it's within the next 7 days and in the future
+        // Only schedule if it fires in the future and within the next 7 days
         if (msUntilNotify > 0 && msUntilNotify < 7 * 24 * 60 * 60 * 1000) {
             setTimeout(() => {
                 const body =
