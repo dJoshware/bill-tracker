@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import webpush from 'web-push';
+import * as webpush from 'web-push';
 import { createServiceClient } from '@/lib/supabase';
 import type { Bill } from '@/lib/types';
 

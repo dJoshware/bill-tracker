@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import {
-    requestNotificationPermission,
     getPermissionStatus,
     sendTestNotification,
     registerServiceWorker,

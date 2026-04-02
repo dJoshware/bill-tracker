@@ -9,7 +9,7 @@ import type { Bill } from "@/lib/types";
 import { formatCurrency, getMonthKey, billVisibleInMonth } from "@/lib/types";
 import {
     registerServiceWorker,
-    scheduleBillReminders,
+    syncBillsToServer,
     getPermissionStatus,
 } from "@/lib/notifications";
 
@@ -59,7 +59,7 @@ export default function HomePage() {
     // Schedule reminders when bills change
     useEffect(() => {
         if (bills.length > 0) {
-            scheduleBillReminders(bills, monthKey);
+            syncBillsToServer(bills);
         }
     }, [bills, monthKey]);
 
