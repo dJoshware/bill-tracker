@@ -157,7 +157,7 @@ export default function HomePage() {
                                 color: "var(--accent)",
                                 lineHeight: 1,
                             }}>
-                            Billfold
+                            Owed
                         </div>
                         <div
                             style={{
@@ -167,7 +167,7 @@ export default function HomePage() {
                                 letterSpacing: "0.04em",
                                 textTransform: "uppercase",
                             }}>
-                            Personal Finance
+                            Track Your Bills
                         </div>
                     </div>
 
