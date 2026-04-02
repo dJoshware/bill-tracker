@@ -2,11 +2,8 @@
 
 import * as React from 'react';
 import type { Bill, PaidRecord } from '@/lib/types';
-import {
-    STORAGE_BILLS,
-    STORAGE_PAID_PREFIX,
-    getMonthKey
-} from '@/lib/types';
+import { STORAGE_BILLS, STORAGE_PAID_PREFIX, getMonthKey } from '@/lib/types';
+import { runMigrations } from '@/lib/migrate';
 
 export function useBills() {
     const [bills, setBills] = React.useState<Bill[]>([]);
@@ -14,6 +11,7 @@ export function useBills() {
 
     React.useEffect(() => {
         try {
+            runMigrations();
             const raw = localStorage.getItem(STORAGE_BILLS);
             if (raw) setBills(JSON.parse(raw));
         } catch {}
