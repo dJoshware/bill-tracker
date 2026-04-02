@@ -1,8 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import type { Bill, Category } from "@/lib/types";
-import { CATEGORIES, NOTIFY_OPTIONS } from "@/lib/types";
+import * as React from "react";
+import type { Bill, Category, Recurrence } from "@/lib/types";
+import {
+    CATEGORIES,
+    NOTIFY_OPTIONS,
+    RECURRENCE_OPTIONS,
+    MONTH_NAMES,
+} from "@/lib/types";
 
 interface BillFormProps {
     initial?: Bill | null;
@@ -21,18 +26,25 @@ export default function BillForm({
     onClose,
     currentMonthKey,
 }: BillFormProps) {
-    const [name, setName] = useState(initial?.name ?? "");
-    const [amount, setAmount] = useState(initial ? String(initial.amount) : "");
-    const [dueDay, setDueDay] = useState(initial ? String(initial.dueDay) : "");
-    const [category, setCategory] = useState<Category>(
+    const [name, setName] = React.useState(initial?.name ?? "");
+    const [amount, setAmount] = React.useState(initial ? String(initial.amount) : "");
+    const [dueDay, setDueDay] = React.useState(initial ? String(initial.dueDay) : "");
+    const [category, setCategory] = React.useState<Category>(
         initial?.category ?? "other",
     );
-    const [recurring, setRecurring] = useState(initial?.recurring ?? true);
-    const [notifyDaysBefore, setNotifyDaysBefore] = useState(
+    const [recurrence, setRecurrence] = React.useState<Recurrence>(
+        initial?.recurrence ?? "monthly",
+    );
+    // For yearly bills: which month is it due in (0–11)
+    const currentMonth = Number(currentMonthKey.split("-")[1]);
+    const [dueMonth, setDueMonth] = React.useState<number>(
+        initial?.dueMonth ?? currentMonth,
+    );
+    const [notifyDaysBefore, setNotifyDaysBefore] = React.useState(
         initial?.notifyDaysBefore ?? 3,
     );
-    const [notes, setNotes] = useState(initial?.notes ?? "");
-    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [notes, setNotes] = React.useState(initial?.notes ?? "");
+    const [errors, setErrors] = React.useState<Record<string, string>>({});
 
     const validate = () => {
         const e: Record<string, string> = {};
@@ -55,11 +67,12 @@ export default function BillForm({
             name: name.trim(),
             amount: parseFloat(amount),
             dueDay: parseInt(dueDay),
+            dueMonth: recurrence === "yearly" ? dueMonth : undefined,
             category,
-            recurring,
+            recurrence,
             notifyDaysBefore,
             notes: notes.trim() || undefined,
-            monthKey: recurring ? undefined : currentMonthKey,
+            monthKey: recurrence === "once" ? currentMonthKey : undefined,
         };
         onSave(bill);
         onClose();
@@ -230,6 +243,100 @@ export default function BillForm({
                     </div>
                 </div>
 
+                {/* ── RECURRENCE ── */}
+                <div style={{ marginBottom: 16 }}>
+                    <label style={labelStyle}>Repeats</label>
+                    <div
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(3,1fr)",
+                            gap: 8,
+                        }}>
+                        {RECURRENCE_OPTIONS.map(opt => (
+                            <button
+                                key={opt.value}
+                                onClick={() => setRecurrence(opt.value)}
+                                style={{
+                                    background:
+                                        recurrence === opt.value
+                                            ? "rgba(200,169,110,0.15)"
+                                            : "var(--surface2)",
+                                    border: `1px solid ${recurrence === opt.value ? "var(--accent)" : "var(--border)"}`,
+                                    borderRadius: 10,
+                                    padding: "10px 6px",
+                                    color:
+                                        recurrence === opt.value
+                                            ? "var(--accent)"
+                                            : "var(--muted)",
+                                    fontFamily: "var(--font-dm-sans)",
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    transition: "all 0.15s",
+                                    textAlign: "center",
+                                }}>
+                                <span style={{ fontSize: 18 }}>{opt.icon}</span>
+                                <span
+                                    style={{
+                                        fontSize: 12,
+                                        fontWeight:
+                                            recurrence === opt.value
+                                                ? 600
+                                                : 400,
+                                    }}>
+                                    {opt.label}
+                                </span>
+                                <span style={{ fontSize: 10, opacity: 0.7 }}>
+                                    {opt.sublabel}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Due Month — only shown for yearly bills */}
+                {recurrence === "yearly" && (
+                    <div style={{ marginBottom: 16 }}>
+                        <label style={labelStyle}>Due Month</label>
+                        <div
+                            style={{
+                                display: "grid",
+                                gridTemplateColumns: "repeat(4,1fr)",
+                                gap: 6,
+                            }}>
+                            {MONTH_NAMES.map((mName, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => setDueMonth(idx)}
+                                    style={{
+                                        background:
+                                            dueMonth === idx
+                                                ? "rgba(200,169,110,0.15)"
+                                                : "var(--surface2)",
+                                        border: `1px solid ${dueMonth === idx ? "var(--accent)" : "var(--border)"}`,
+                                        borderRadius: 8,
+                                        padding: "8px 4px",
+                                        color:
+                                            dueMonth === idx
+                                                ? "var(--accent)"
+                                                : "var(--muted)",
+                                        fontSize: 12,
+                                        fontWeight:
+                                            dueMonth === idx ? 600 : 400,
+                                        fontFamily: "var(--font-dm-sans)",
+                                        cursor: "pointer",
+                                        transition: "all 0.15s",
+                                        textAlign: "center",
+                                    }}>
+                                    {mName.slice(0, 3)}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Notify */}
                 <div style={{ marginBottom: 16 }}>
                     <label style={labelStyle}>Remind Me</label>
@@ -264,70 +371,6 @@ export default function BillForm({
                                 {opt.label}
                             </button>
                         ))}
-                    </div>
-                </div>
-
-                {/* Recurring toggle */}
-                <div style={{ marginBottom: 16 }}>
-                    <div
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            background: "var(--surface2)",
-                            border: "1px solid var(--border)",
-                            borderRadius: 12,
-                            padding: "12px 14px",
-                        }}>
-                        <span style={{ fontSize: 14, color: "var(--text)" }}>
-                            🔄 Recurring monthly
-                        </span>
-                        <label
-                            style={{
-                                position: "relative",
-                                width: 44,
-                                height: 26,
-                                display: "block",
-                            }}>
-                            <input
-                                type='checkbox'
-                                checked={recurring}
-                                onChange={e => setRecurring(e.target.checked)}
-                                style={{
-                                    opacity: 0,
-                                    width: 0,
-                                    height: 0,
-                                    position: "absolute",
-                                }}
-                            />
-                            <span
-                                style={{
-                                    position: "absolute",
-                                    inset: 0,
-                                    background: recurring
-                                        ? "var(--success)"
-                                        : "var(--surface)",
-                                    border: `1px solid ${recurring ? "var(--success)" : "var(--border)"}`,
-                                    borderRadius: 13,
-                                    cursor: "pointer",
-                                    transition: "all 0.2s",
-                                }}>
-                                <span
-                                    style={{
-                                        position: "absolute",
-                                        width: 20,
-                                        height: 20,
-                                        background: recurring
-                                            ? "#0f1117"
-                                            : "var(--muted)",
-                                        borderRadius: "50%",
-                                        top: 2,
-                                        left: recurring ? 20 : 2,
-                                        transition: "all 0.2s",
-                                    }}
-                                />
-                            </span>
-                        </label>
                     </div>
                 </div>
 

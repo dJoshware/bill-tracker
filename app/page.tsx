@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import * as React from "react";
 import { useBills, usePaid } from "@/hooks/useBills";
 import BillCard from "@/components/BillCard";
 import BillForm from "@/components/BillForm";
 import NotificationPanel from "@/components/NotificationPanel";
 import type { Bill } from "@/lib/types";
-import { formatCurrency, getMonthKey } from "@/lib/types";
+import { formatCurrency, getMonthKey, billVisibleInMonth } from "@/lib/types";
 import {
     registerServiceWorker,
     scheduleBillReminders,
@@ -37,27 +37,29 @@ function getViewMonth(offset: number) {
 }
 
 export default function HomePage() {
-    const [monthOffset, setMonthOffset] = useState(0);
+    const [monthOffset, setMonthOffset] = React.useState(0);
     const { year, month } = getViewMonth(monthOffset);
     const monthKey = getMonthKey(year, month);
 
     const { bills, loaded, addBill, updateBill, deleteBill } = useBills();
     const { paid, togglePaid } = usePaid(monthKey);
 
-    const [showForm, setShowForm] = useState(false);
-    const [editBill, setEditBill] = useState<Bill | null>(null);
-    const [showNotif, setShowNotif] = useState(false);
-    const [toast, setToast] = useState("");
-    const [filterCat, setFilterCat] = useState<string>("all");
-    const [sortBy, setSortBy] = useState<"due" | "amount" | "name">("due");
+    const [showForm, setShowForm] = React.useState(false);
+    const [editBill, setEditBill] = React.useState<Bill | null>(null);
+    const [showNotif, setShowNotif] = React.useState(false);
+    const [toast, setToast] = React.useState("");
+    const [filterCat, setFilterCat] = React.useState<string>("all");
+    const [sortBy, setSortBy] = React.useState<"due" | "amount" | "name">(
+        "due",
+    );
 
     // Register SW on mount
-    useEffect(() => {
+    React.useEffect(() => {
         registerServiceWorker();
     }, []);
 
     // Schedule reminders when bills change
-    useEffect(() => {
+    React.useEffect(() => {
         if (bills.length > 0) {
             scheduleBillReminders(bills, monthKey);
         }
@@ -69,10 +71,8 @@ export default function HomePage() {
     };
 
     // Visible bills for this month
-    const visibleBills = useMemo(() => {
-        let filtered = bills.filter(
-            b => b.recurring || b.monthKey === monthKey,
-        );
+    const visibleBills = React.useMemo(() => {
+        let filtered = bills.filter(b => billVisibleInMonth(b, monthKey));
         if (filterCat !== "all")
             filtered = filtered.filter(b => b.category === filterCat);
         return [...filtered].sort((a, b) => {
@@ -83,9 +83,9 @@ export default function HomePage() {
     }, [bills, monthKey, filterCat, sortBy]);
 
     // Summary
-    const { total, paidTotal, remaining } = useMemo(() => {
-        const allMonthBills = bills.filter(
-            b => b.recurring || b.monthKey === monthKey,
+    const { total, paidTotal, remaining } = React.useMemo(() => {
+        const allMonthBills = bills.filter(b =>
+            billVisibleInMonth(b, monthKey),
         );
         const total = allMonthBills.reduce((s, b) => s + b.amount, 0);
         const paidTotal = allMonthBills
@@ -169,7 +169,7 @@ export default function HomePage() {
                                 letterSpacing: "0.04em",
                                 textTransform: "uppercase",
                             }}>
-                            Personal Finance
+                            Track Your Bills
                         </div>
                     </div>
 

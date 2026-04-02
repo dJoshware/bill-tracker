@@ -7,6 +7,7 @@ import {
     ordinal,
     isOverdue,
     isDueSoon,
+    // MONTH_NAMES,
 } from "@/lib/types";
 
 interface BillCardProps {
@@ -120,7 +121,7 @@ export default function BillCard({
                         }}
                     />
                     <span>Due {ordinal(bill.dueDay)}</span>
-                    {!bill.recurring && (
+                    {bill.recurrence !== "monthly" && (
                         <>
                             <span
                                 style={{
@@ -136,7 +137,9 @@ export default function BillCard({
                                     color: "var(--accent)",
                                     fontSize: 10,
                                 }}>
-                                ONE-TIME
+                                {bill.recurrence === "yearly"
+                                    ? "YEARLY"
+                                    : "ONE-TIME"}
                             </span>
                         </>
                     )}

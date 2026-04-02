@@ -1,11 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import * as React from "react";
 import {
     requestNotificationPermission,
     getPermissionStatus,
     sendTestNotification,
     registerServiceWorker,
+    getSavedNotifyTime,
+    saveNotifyTime,
+    formatTime12h,
+    DEFAULT_NOTIFY_TIME,
 } from "@/lib/notifications";
 import type { Bill } from "@/lib/types";
 
@@ -14,19 +18,31 @@ interface NotificationPanelProps {
     onClose: () => void;
 }
 
+// Quick-pick presets for common times
+const TIME_PRESETS = [
+    { label: "7 AM", value: "07:00" },
+    { label: "8 AM", value: "08:00" },
+    { label: "9 AM", value: "09:00" },
+    { label: "12 PM", value: "12:00" },
+    { label: "5 PM", value: "17:00" },
+    { label: "8 PM", value: "20:00" },
+];
+
 export default function NotificationPanel({
     bills,
     onClose,
 }: NotificationPanelProps) {
-    const [permission, setPermission] = useState<
+    const [permission, setPermission] = React.useState<
         NotificationPermission | "unsupported"
-    >("default");
-    const [swReady, setSwReady] = useState(false);
-    const [testSent, setTestSent] = useState(false);
+    >(() => getPermissionStatus());
+    const [swReady, setSwReady] = React.useState(false);
+    const [testSent, setTestSent] = React.useState(false);
+    const [notifyTime, setNotifyTime] = React.useState<string>(DEFAULT_NOTIFY_TIME);
+    const [timeSaved, setTimeSaved] = React.useState(false);
 
-    useEffect(() => {
-        setPermission(getPermissionStatus());
+    React.useEffect(() => {
         registerServiceWorker().then(reg => setSwReady(!!reg));
+        setNotifyTime(getSavedNotifyTime());
     }, []);
 
     const handleEnable = async () => {
@@ -40,6 +56,13 @@ export default function NotificationPanel({
         sendTestNotification(bill.name, bill.amount);
         setTestSent(true);
         setTimeout(() => setTestSent(false), 3000);
+    };
+
+    const handleTimeChange = (value: string) => {
+        setNotifyTime(value);
+        saveNotifyTime(value);
+        setTimeSaved(true);
+        setTimeout(() => setTimeSaved(false), 2000);
     };
 
     const statusColor =
@@ -78,7 +101,10 @@ export default function NotificationPanel({
                     padding:
                         "28px 20px calc(28px + env(safe-area-inset-bottom, 0px))",
                     width: "100%",
+                    maxHeight: "92dvh",
+                    overflowY: "auto",
                 }}>
+                {/* Handle */}
                 <div
                     style={{
                         width: 36,
@@ -150,6 +176,118 @@ export default function NotificationPanel({
                             boxShadow: `0 0 8px ${statusColor}`,
                         }}
                     />
+                </div>
+
+                {/* ── REMINDER TIME ── */}
+                <div
+                    style={{
+                        background: "var(--surface2)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 12,
+                        padding: "14px 16px",
+                        marginBottom: 16,
+                    }}>
+                    <div
+                        style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            marginBottom: 12,
+                        }}>
+                        <div>
+                            <div
+                                style={{
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    color: "var(--text)",
+                                }}>
+                                ⏰ Reminder Time
+                            </div>
+                            <div
+                                style={{
+                                    fontSize: 12,
+                                    color: "var(--muted)",
+                                    marginTop: 2,
+                                }}>
+                                Reminders fire at{" "}
+                                <span
+                                    style={{
+                                        color: "var(--accent)",
+                                        fontWeight: 600,
+                                    }}>
+                                    {formatTime12h(notifyTime)}
+                                </span>
+                                {timeSaved && (
+                                    <span
+                                        style={{
+                                            color: "var(--success)",
+                                            marginLeft: 6,
+                                        }}>
+                                        ✓ saved
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                        {/* Native time input — shows system time picker on iOS */}
+                        <input
+                            type='time'
+                            value={notifyTime}
+                            onChange={e => handleTimeChange(e.target.value)}
+                            style={{
+                                background: "var(--surface)",
+                                border: "1px solid var(--border)",
+                                borderRadius: 8,
+                                padding: "8px 10px",
+                                color: "var(--accent)",
+                                fontFamily: "var(--font-dm-sans)",
+                                fontSize: 14,
+                                fontWeight: 600,
+                                outline: "none",
+                                cursor: "pointer",
+                                colorScheme: "dark",
+                            }}
+                        />
+                    </div>
+
+                    {/* Quick-pick preset buttons */}
+                    <div
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(6, 1fr)",
+                            gap: 6,
+                        }}>
+                        {TIME_PRESETS.map(preset => (
+                            <button
+                                key={preset.value}
+                                onClick={() => handleTimeChange(preset.value)}
+                                style={{
+                                    background:
+                                        notifyTime === preset.value
+                                            ? "rgba(200,169,110,0.2)"
+                                            : "var(--surface)",
+                                    border: `1px solid ${
+                                        notifyTime === preset.value
+                                            ? "var(--accent)"
+                                            : "var(--border)"
+                                    }`,
+                                    borderRadius: 8,
+                                    padding: "6px 2px",
+                                    color:
+                                        notifyTime === preset.value
+                                            ? "var(--accent)"
+                                            : "var(--muted)",
+                                    fontSize: 11,
+                                    fontWeight:
+                                        notifyTime === preset.value ? 600 : 400,
+                                    fontFamily: "var(--font-dm-sans)",
+                                    cursor: "pointer",
+                                    transition: "all 0.15s",
+                                    textAlign: "center",
+                                }}>
+                                {preset.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {/* iOS instructions */}

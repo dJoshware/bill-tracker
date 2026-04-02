@@ -6,16 +6,19 @@ export type Category =
     | 'health'
     | 'other';
 
+export type Recurrence = 'once' | 'monthly' | 'yearly';
+
 export interface Bill {
     id: string;
     name: string;
     amount: number;
-    dueDay: number; // day of month 1-31
+    dueDay: number; // day of month 1–31
+    dueMonth?: number; // 0–11, only used for yearly bills
     category: Category;
-    recurring: boolean;
+    recurrence: Recurrence;
     monthKey?: string; // "YYYY-M" for one-time bills
     notes?: string;
-    notifyDaysBefore: number; // 0 = day of, 1 = 1 day before, 3 = 3 days before, 7 = 1 week before
+    notifyDaysBefore: number;
     color?: string;
 }
 
@@ -41,11 +44,42 @@ export const CATEGORIES: {
     { id: 'other', label: 'Other', icon: '📋', color: '#C8A96E' },
 ];
 
+export const RECURRENCE_OPTIONS: {
+    value: Recurrence;
+    label: string;
+    sublabel: string;
+    icon: string;
+}[] = [
+    { value: 'monthly', label: 'Monthly', sublabel: 'Every month', icon: '🔄' },
+    { value: 'yearly', label: 'Yearly', sublabel: 'Once a year', icon: '📅' },
+    {
+        value: 'once',
+        label: 'One-time',
+        sublabel: 'This month only',
+        icon: '1️⃣',
+    },
+];
+
 export const NOTIFY_OPTIONS = [
     { value: 0, label: 'Day of' },
     { value: 1, label: '1 day before' },
     { value: 3, label: '3 days before' },
     { value: 7, label: '1 week before' },
+];
+
+export const MONTH_NAMES = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
 ];
 
 export function getMonthKey(year: number, month: number) {
@@ -68,6 +102,18 @@ export function ordinal(n: number) {
     const s = ['th', 'st', 'nd', 'rd'];
     const v = n % 100;
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+/** Returns true if a bill should appear in the given monthKey */
+export function billVisibleInMonth(bill: Bill, monthKey: string): boolean {
+    const [year, month] = monthKey.split('-').map(Number);
+    if (bill.recurrence === 'monthly') return true;
+    if (bill.recurrence === 'once') return bill.monthKey === monthKey;
+    // yearly: visible when the calendar month matches the bill's dueMonth
+    if (bill.recurrence === 'yearly') {
+        return bill.dueMonth === month;
+    }
+    return false;
 }
 
 export function isOverdue(
@@ -96,6 +142,6 @@ export function isDueSoon(
 }
 
 // localStorage keys
-export const STORAGE_BILLS = 'billfold_bills_v2';
-export const STORAGE_PAID_PREFIX = 'billfold_paid_';
-export const STORAGE_PUSH_SUB = 'billfold_push_sub';
+export const STORAGE_BILLS = 'owed_bills_v3';
+export const STORAGE_PAID_PREFIX = 'owed_paid_';
+export const STORAGE_PUSH_SUB = 'owed_push_sub';

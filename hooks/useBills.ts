@@ -1,14 +1,18 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import * as React from 'react';
 import type { Bill, PaidRecord } from '@/lib/types';
-import { STORAGE_BILLS, STORAGE_PAID_PREFIX, getMonthKey } from '@/lib/types';
+import {
+    STORAGE_BILLS,
+    STORAGE_PAID_PREFIX,
+    getMonthKey
+} from '@/lib/types';
 
 export function useBills() {
-    const [bills, setBills] = useState<Bill[]>([]);
-    const [loaded, setLoaded] = useState(false);
+    const [bills, setBills] = React.useState<Bill[]>([]);
+    const [loaded, setLoaded] = React.useState(false);
 
-    useEffect(() => {
+    React.useEffect(() => {
         try {
             const raw = localStorage.getItem(STORAGE_BILLS);
             if (raw) setBills(JSON.parse(raw));
@@ -16,25 +20,25 @@ export function useBills() {
         setLoaded(true);
     }, []);
 
-    const saveBills = useCallback((next: Bill[]) => {
+    const saveBills = React.useCallback((next: Bill[]) => {
         setBills(next);
         try {
             localStorage.setItem(STORAGE_BILLS, JSON.stringify(next));
         } catch {}
     }, []);
 
-    const addBill = useCallback(
+    const addBill = React.useCallback(
         (bill: Bill) => saveBills([...bills, bill]),
         [bills, saveBills],
     );
 
-    const updateBill = useCallback(
+    const updateBill = React.useCallback(
         (id: string, updates: Partial<Bill>) =>
             saveBills(bills.map(b => (b.id === id ? { ...b, ...updates } : b))),
         [bills, saveBills],
     );
 
-    const deleteBill = useCallback(
+    const deleteBill = React.useCallback(
         (id: string) => saveBills(bills.filter(b => b.id !== id)),
         [bills, saveBills],
     );
@@ -43,9 +47,9 @@ export function useBills() {
 }
 
 export function usePaid(monthKey: string) {
-    const [paid, setPaid] = useState<PaidRecord>({});
+    const [paid, setPaid] = React.useState<PaidRecord>({});
 
-    useEffect(() => {
+    React.useEffect(() => {
         try {
             const raw = localStorage.getItem(STORAGE_PAID_PREFIX + monthKey);
             if (raw) setPaid(JSON.parse(raw));
@@ -55,7 +59,7 @@ export function usePaid(monthKey: string) {
         }
     }, [monthKey]);
 
-    const togglePaid = useCallback(
+    const togglePaid = React.useCallback(
         (id: string) => {
             const next = { ...paid };
             if (next[id]) delete next[id];
