@@ -9,6 +9,6 @@ export const supabase = createClient(url, anonKey);
 // Server client — uses service role key, bypasses RLS
 // Only import this in API routes / server components, never in client code
 export function createServiceClient() {
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    const serviceKey = process.env.SUPABASE_SECRET_KEY!;
     return createClient(url, serviceKey);
 }
