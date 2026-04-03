@@ -338,7 +338,7 @@ export default function NotificationPanel({
                                     color: "var(--muted)",
                                     marginTop: 4,
                                 }}>
-                                Reminders fire between 8-9AM
+                                Reminders fire between 9:00-9:59 AM
                             </div>
                         </div>
                     </div>
