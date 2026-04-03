@@ -155,6 +155,6 @@ export function isDueSoon(
 }
 
 // localStorage keys
-export const STORAGE_BILLS = 'billfold_bills_v3'; // bumped version for schema change
-export const STORAGE_PAID_PREFIX = 'billfold_paid_';
-export const STORAGE_PUSH_SUB = 'billfold_push_sub';
+export const STORAGE_BILLS = 'owed_bills_v3';
+export const STORAGE_PAID_PREFIX = 'owed_paid_';
+export const STORAGE_PUSH_SUB = 'owed_push_sub';
