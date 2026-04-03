@@ -15,13 +15,11 @@ export async function POST(req: NextRequest) {
 
         const supabase = createServiceClient();
 
-        // Upsert — if this endpoint already exists, update its keys
         const { error } = await supabase.from('push_subscriptions').upsert(
             {
                 endpoint,
                 p256dh: keys.p256dh,
                 auth: keys.auth,
-                user_agent: req.headers.get('user-agent') ?? undefined,
             },
             { onConflict: 'endpoint' },
         );
