@@ -6,8 +6,8 @@ import {
     formatCurrency,
     ordinal,
     isOverdue,
+    isDueToday,
     isDueSoon,
-    // MONTH_NAMES,
 } from "@/lib/types";
 
 interface BillCardProps {
@@ -29,6 +29,7 @@ export default function BillCard({
 }: BillCardProps) {
     const cat = getCategoryInfo(bill.category);
     const overdue = isOverdue(bill, monthKey, paid);
+    const dueToday = isDueToday(bill, monthKey, paid);
     const dueSoon = isDueSoon(bill, monthKey, paid);
 
     const accentColor = overdue
@@ -158,7 +159,22 @@ export default function BillCard({
                             Overdue
                         </span>
                     )}
-                    {dueSoon && !overdue && (
+                    {dueToday && !overdue && (
+                        <span
+                            style={{
+                                fontSize: 10,
+                                fontWeight: 600,
+                                color: "var(--success)",
+                                background: "rgba(110,200,160,0.12)",
+                                borderRadius: 4,
+                                padding: "1px 5px",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.03em",
+                            }}>
+                            Due Today
+                        </span>
+                    )}
+                    {dueSoon && !overdue && !dueToday && (
                         <span
                             style={{
                                 fontSize: 10,
