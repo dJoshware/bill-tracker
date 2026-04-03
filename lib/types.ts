@@ -128,6 +128,18 @@ export function isOverdue(
     return !paid && bill.dueDay < today.getDate();
 }
 
+export function isDueToday(
+    bill: Bill,
+    monthKey: string,
+    paid: boolean,
+): boolean {
+    const today = new Date();
+    const [year, month] = monthKey.split('-').map(Number);
+    if (year !== today.getFullYear() || month !== today.getMonth())
+        return false;
+    return !paid && bill.dueDay === today.getDate();
+}
+
 export function isDueSoon(
     bill: Bill,
     monthKey: string,
@@ -138,10 +150,11 @@ export function isDueSoon(
     if (year !== today.getFullYear() || month !== today.getMonth())
         return false;
     const daysUntilDue = bill.dueDay - today.getDate();
-    return !paid && daysUntilDue >= 0 && daysUntilDue <= 3;
+    // 1-3 days away, excludes today (isDueToday handles that)
+    return !paid && daysUntilDue >= 1 && daysUntilDue <= 3;
 }
 
 // localStorage keys
-export const STORAGE_BILLS = 'owed_bills_v3';
-export const STORAGE_PAID_PREFIX = 'owed_paid_';
-export const STORAGE_PUSH_SUB = 'owed_push_sub';
+export const STORAGE_BILLS = 'billfold_bills_v3'; // bumped version for schema change
+export const STORAGE_PAID_PREFIX = 'billfold_paid_';
+export const STORAGE_PUSH_SUB = 'billfold_push_sub';
