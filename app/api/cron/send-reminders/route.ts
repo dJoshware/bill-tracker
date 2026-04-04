@@ -27,6 +27,17 @@ function getBillsDueForReminder(bills: Bill[]): Bill[] {
 
         // The day the reminder should fire
         const reminderDay = bill.dueDay - bill.notifyDaysBefore;
+        if (reminderDay < 1) {
+            // Crosses into previous month — check if today is that date
+            const prevMonth = new Date(todayYear, todayMonth, 0); // last day of prev month
+            const prevMonthDays = prevMonth.getDate();
+            const crossedDay = prevMonthDays + reminderDay; // e.g. 31 + (-2) = 29
+            return todayMonth > 0
+                ? crossedDay === todayDate &&
+                      todayMonth - 1 ===
+                          new Date(todayYear, todayMonth - 1).getMonth()
+                : false; // skip January edge case for now
+        }
         return reminderDay === todayDate;
     });
 }
@@ -90,7 +101,9 @@ export async function GET(req: NextRequest) {
             const body =
                 bill.notifyDaysBefore === 0
                     ? `${bill.name} is due today — $${bill.amount.toFixed(2)}`
-                    : `${bill.name} is due in ${bill.notifyDaysBefore} day${bill.notifyDaysBefore > 1 ? 's' : ''} — $${bill.amount.toFixed(2)}`;
+                    : bill.notifyDaysBefore === 1
+                      ? `${bill.name} is due tomorrow — $${bill.amount.toFixed(2)}`
+                      : `${bill.name} is due in ${bill.notifyDaysBefore} days — $${bill.amount.toFixed(2)}`;
 
             const payload = JSON.stringify({
                 title: '💳 Bill Reminder',
