@@ -8,10 +8,10 @@ import {
     subscribeToPush,
     unsubscribeFromPush,
     getExistingSubscription,
-    // getSavedNotifyTime,
-    // saveNotifyTime,
-    // formatTime12h,
-    // DEFAULT_NOTIFY_TIME,
+    getSavedNotifyTime,
+    saveNotifyTime,
+    formatTime12h,
+    DEFAULT_NOTIFY_TIME,
 } from "@/lib/notifications";
 import type { Bill } from "@/lib/types";
 
@@ -20,14 +20,14 @@ interface NotificationPanelProps {
     onClose: () => void;
 }
 
-// const TIME_PRESETS = [
-//     { label: "7 AM", value: "07:00" },
-//     { label: "8 AM", value: "08:00" },
-//     { label: "9 AM", value: "09:00" },
-//     { label: "12 PM", value: "12:00" },
-//     { label: "5 PM", value: "17:00" },
-//     { label: "8 PM", value: "20:00" },
-// ];
+const TIME_PRESETS = [
+    { label: "7 AM", value: "07:00" },
+    { label: "8 AM", value: "08:00" },
+    { label: "9 AM", value: "09:00" },
+    { label: "12 PM", value: "12:00" },
+    { label: "5 PM", value: "17:00" },
+    { label: "8 PM", value: "20:00" },
+];
 
 export default function NotificationPanel({
     bills,
@@ -40,13 +40,13 @@ export default function NotificationPanel({
     const [swReady, setSwReady] = React.useState(false);
     const [loading, setLoading] = React.useState(false);
     const [testSent, setTestSent] = React.useState(false);
-    // const [notifyTime, setNotifyTime] =
-    //     React.useState<string>(DEFAULT_NOTIFY_TIME);
-    // const [timeSaved, setTimeSaved] = React.useState(false);
+    const [notifyTime, setNotifyTime] =
+        React.useState<string>(DEFAULT_NOTIFY_TIME);
+    const [timeSaved, setTimeSaved] = React.useState(false);
 
     React.useEffect(() => {
         registerServiceWorker().then(reg => setSwReady(!!reg));
-        // Check if already subscribed
+        setNotifyTime(getSavedNotifyTime());
         getExistingSubscription().then(sub => setSubscribed(!!sub));
     }, []);
 
@@ -58,7 +58,6 @@ export default function NotificationPanel({
                 setSubscribed(true);
                 setPermission("granted");
             } else {
-                // Permission was denied
                 setPermission(getPermissionStatus());
             }
         } finally {
@@ -81,6 +80,13 @@ export default function NotificationPanel({
         await sendTestNotification(bills[0].name, bills[0].amount);
         setTestSent(true);
         setTimeout(() => setTestSent(false), 3000);
+    };
+
+    const handleTimeChange = (value: string) => {
+        setNotifyTime(value);
+        saveNotifyTime(value);
+        setTimeSaved(true);
+        setTimeout(() => setTimeSaved(false), 2000);
     };
 
     const statusColor =
@@ -204,7 +210,7 @@ export default function NotificationPanel({
                 </div>
 
                 {/* Reminder time picker */}
-                {/* <div
+                <div
                     style={{
                         background: "var(--surface2)",
                         border: "1px solid var(--border)",
@@ -305,42 +311,6 @@ export default function NotificationPanel({
                                 {preset.label}
                             </button>
                         ))}
-                    </div>
-                </div> */}
-
-                <div
-                    style={{
-                        background: "var(--surface2)",
-                        border: "1px solid var(--border)",
-                        borderRadius: 12,
-                        padding: "14px 16px",
-                        marginBottom: 16,
-                    }}>
-                    <div
-                        style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            marginBottom: 12,
-                        }}>
-                        <div>
-                            <div
-                                style={{
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    color: "var(--text)",
-                                }}>
-                                ⏰ Reminder Time
-                            </div>
-                            <div
-                                style={{
-                                    fontSize: 12,
-                                    color: "var(--muted)",
-                                    marginTop: 4,
-                                }}>
-                                Reminders fire between 9:00-9:59 AM
-                            </div>
-                        </div>
                     </div>
                 </div>
 

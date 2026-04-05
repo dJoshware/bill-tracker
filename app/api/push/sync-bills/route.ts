@@ -3,7 +3,7 @@ import { createServiceClient } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
     try {
-        const { endpoint, bills } = await req.json();
+        const { endpoint, bills, notifyTime } = await req.json();
 
         if (!endpoint || !Array.isArray(bills)) {
             return NextResponse.json(
@@ -13,9 +13,14 @@ export async function POST(req: NextRequest) {
         }
 
         const supabase = createServiceClient();
-        const { error } = await supabase
-            .from('bills')
-            .upsert({ endpoint, data: bills }, { onConflict: 'endpoint' });
+        const { error } = await supabase.from('bills').upsert(
+            {
+                endpoint,
+                data: bills,
+                notify_time: notifyTime ?? '09:00',
+            },
+            { onConflict: 'endpoint' },
+        );
 
         if (error) throw error;
 

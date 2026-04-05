@@ -16,7 +16,6 @@ function getBillsDueForReminder(bills: Bill[]): Bill[] {
     const todayDate = today.getDate();
 
     return bills.filter(bill => {
-        // Figure out which month this bill is active in
         if (bill.recurrence === 'once') {
             const [y, m] = (bill.monthKey ?? '').split('-').map(Number);
             if (y !== todayYear || m !== todayMonth) return false;
@@ -25,25 +24,23 @@ function getBillsDueForReminder(bills: Bill[]): Bill[] {
             if (bill.dueMonth !== todayMonth) return false;
         }
 
-        // The day the reminder should fire
         const reminderDay = bill.dueDay - bill.notifyDaysBefore;
-        if (reminderDay < 1) {
-            // Crosses into previous month — check if today is that date
-            const prevMonth = new Date(todayYear, todayMonth, 0); // last day of prev month
-            const prevMonthDays = prevMonth.getDate();
-            const crossedDay = prevMonthDays + reminderDay; // e.g. 31 + (-2) = 29
-            return todayMonth > 0
-                ? crossedDay === todayDate &&
-                      todayMonth - 1 ===
-                          new Date(todayYear, todayMonth - 1).getMonth()
-                : false; // skip January edge case for now
-        }
+        if (reminderDay < 1) return false; // crosses month boundary, skip
         return reminderDay === todayDate;
     });
 }
 
+/** Returns true if now is within the 30-minute window of the preferred time */
+function isWithinNotifyWindow(preferredTime: string): boolean {
+    const [prefHour, prefMinute] = preferredTime.split(':').map(Number);
+    const now = new Date();
+    const nowMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+    const prefMinutes = prefHour * 60 + prefMinute;
+    // Fire if we're within a 30-minute window of the preferred time
+    return nowMinutes >= prefMinutes && nowMinutes < prefMinutes + 30;
+}
+
 export async function GET(req: NextRequest) {
-    // Protect the cron endpoint from unauthorized calls
     const authHeader = req.headers.get('authorization');
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -51,7 +48,6 @@ export async function GET(req: NextRequest) {
 
     const supabase = createServiceClient();
 
-    // Fetch all push subscriptions
     const { data: subscriptions, error: subError } = await supabase
         .from('push_subscriptions')
         .select('*');
@@ -65,33 +61,40 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ sent: 0, message: 'No subscriptions' });
     }
 
-    // Fetch bills from localStorage isn't possible server-side, so bills
-    // are posted to this endpoint from the client when they change.
-    // Read them from Supabase instead.
     const { data: billRows, error: billError } = await supabase
         .from('bills')
-        .select('data');
+        .select('endpoint, data, notify_time');
 
     if (billError) {
         console.error('Failed to fetch bills:', billError);
         return NextResponse.json({ error: 'DB error' }, { status: 500 });
     }
 
-    const allBills: Bill[] = (billRows ?? []).flatMap(row => row.data ?? []);
-    const billsDue = getBillsDueForReminder(allBills);
-
-    if (billsDue.length === 0) {
-        return NextResponse.json({
-            sent: 0,
-            message: 'No reminders due today',
-        });
-    }
-
     let sent = 0;
     let failed = 0;
+    let skipped = 0;
     const expiredEndpoints: string[] = [];
 
-    for (const sub of subscriptions) {
+    for (const row of billRows ?? []) {
+        // Each row has a preferred notify_time saved alongside the bills
+        const notifyTime: string = row.notify_time ?? '09:00';
+
+        // Skip this subscriber if we're not in their notify window yet
+        if (!isWithinNotifyWindow(notifyTime)) {
+            skipped++;
+            continue;
+        }
+
+        const bills: Bill[] = row.data ?? [];
+        const billsDue = getBillsDueForReminder(bills);
+        if (billsDue.length === 0) continue;
+
+        // Find the subscription for this row's endpoint
+        const sub =
+            subscriptions.find(s =>
+                bills.some(() => s.endpoint === row.endpoint),
+            ) ?? subscriptions[0];
+
         const pushSubscription = {
             endpoint: sub.endpoint,
             keys: { p256dh: sub.p256dh, auth: sub.auth },
@@ -116,7 +119,6 @@ export async function GET(req: NextRequest) {
                 await webpush.sendNotification(pushSubscription, payload);
                 sent++;
             } catch (err: unknown) {
-                // 404/410 means the subscription is expired — clean it up
                 if (
                     err &&
                     typeof err === 'object' &&
@@ -132,7 +134,6 @@ export async function GET(req: NextRequest) {
         }
     }
 
-    // Remove expired subscriptions
     if (expiredEndpoints.length > 0) {
         await supabase
             .from('push_subscriptions')
@@ -143,6 +144,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
         sent,
         failed,
+        skipped,
         expired: expiredEndpoints.length,
     });
 }

@@ -114,7 +114,11 @@ export async function syncBillsToServer(bills: Bill[]): Promise<void> {
         await fetch('/api/push/sync-bills', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ endpoint: sub.endpoint, bills }),
+            body: JSON.stringify({
+                endpoint: sub.endpoint,
+                bills,
+                notifyTime: getSavedNotifyTime(),
+            }),
         });
     } catch (e) {
         console.error('Bill sync failed:', e);
@@ -131,7 +135,7 @@ export async function sendTestNotification(
     if (!reg) return;
 
     // Use showNotification via the service worker so it works even on iOS PWA
-    await reg.showNotification('💳 Bill Reminder', {
+    await reg.showNotification('💳 Bill Reminder – Owed', {
         body: `${billName} is due soon — $${amount.toFixed(2)}`,
         tag: 'test-notification',
     });
