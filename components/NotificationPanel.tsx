@@ -83,8 +83,11 @@ export default function NotificationPanel({
     };
 
     const handleTimeChange = (value: string) => {
-        setNotifyTime(value);
-        saveNotifyTime(value);
+        // Round down to the hour — strip minutes
+        const hour = value.split(":")[0];
+        const rounded = `${hour}:00`;
+        setNotifyTime(rounded);
+        saveNotifyTime(rounded);
         setTimeSaved(true);
         setTimeout(() => setTimeSaved(false), 2000);
     };

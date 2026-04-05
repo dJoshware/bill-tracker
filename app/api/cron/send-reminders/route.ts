@@ -32,12 +32,9 @@ function getBillsDueForReminder(bills: Bill[]): Bill[] {
 
 /** Returns true if now is within the 30-minute window of the preferred time */
 function isWithinNotifyWindow(preferredTime: string): boolean {
-    const [prefHour, prefMinute] = preferredTime.split(':').map(Number);
+    const [prefHour] = preferredTime.split(':').map(Number);
     const now = new Date();
-    const nowMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-    const prefMinutes = prefHour * 60 + prefMinute;
-    // Fire if we're within a 30-minute window of the preferred time
-    return nowMinutes >= prefMinutes && nowMinutes < prefMinutes + 30;
+    return now.getUTCHours() === prefHour;
 }
 
 export async function GET(req: NextRequest) {
