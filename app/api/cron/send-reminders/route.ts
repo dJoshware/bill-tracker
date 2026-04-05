@@ -25,15 +25,34 @@ function getBillsDueForReminder(bills: Bill[]): Bill[] {
         }
 
         const reminderDay = bill.dueDay - bill.notifyDaysBefore;
-        if (reminderDay < 1) return false; // crosses month boundary, skip
+        if (reminderDay < 1) return false;
         return reminderDay === todayDate;
     });
 }
 
-/** Returns true if the current UTC hour matches the preferred hour */
-function isWithinNotifyWindow(preferredTime: string): boolean {
+/**
+ * Returns true if this cron run should send notifications for this row.
+ *
+ * Rules:
+ * - Never send twice on the same calendar day (last_sent_date guard)
+ * - Send on the first cron run where the current UTC hour >= preferred hour
+ *
+ * This means if you set 9 AM at 9:23 AM, the 10:00 AM cron is the first
+ * run at-or-after 9, hasn't sent today yet, so it fires. ✅
+ */
+function shouldSendNow(
+    preferredTime: string,
+    lastSentDate: string | null,
+): boolean {
     const [prefHour] = preferredTime.split(':').map(Number);
-    return new Date().getUTCHours() === prefHour;
+    const now = new Date();
+    const todayUTC = now.toISOString().slice(0, 10); // "YYYY-MM-DD"
+
+    // Already sent today — don't send again
+    if (lastSentDate === todayUTC) return false;
+
+    // Send on any cron run at or after the preferred hour
+    return now.getUTCHours() >= prefHour;
 }
 
 export async function GET(req: NextRequest) {
@@ -59,7 +78,7 @@ export async function GET(req: NextRequest) {
 
     const { data: billRows, error: billError } = await supabase
         .from('bills')
-        .select('endpoint, data, notify_time');
+        .select('endpoint, data, notify_time, last_sent_date');
 
     if (billError) {
         console.error('Failed to fetch bills:', billError);
@@ -70,13 +89,13 @@ export async function GET(req: NextRequest) {
     let failed = 0;
     let skipped = 0;
     const expiredEndpoints: string[] = [];
+    const sentEndpoints: string[] = [];
 
     for (const row of billRows ?? []) {
-        // Each row has a preferred notify_time saved alongside the bills
         const notifyTime: string = row.notify_time ?? '09:00';
+        const lastSentDate: string | null = row.last_sent_date ?? null;
 
-        // Skip this subscriber if we're not in their notify window yet
-        if (!isWithinNotifyWindow(notifyTime)) {
+        if (!shouldSendNow(notifyTime, lastSentDate)) {
             skipped++;
             continue;
         }
@@ -85,11 +104,8 @@ export async function GET(req: NextRequest) {
         const billsDue = getBillsDueForReminder(bills);
         if (billsDue.length === 0) continue;
 
-        // Find the subscription for this row's endpoint
-        const sub =
-            subscriptions.find(s =>
-                bills.some(() => s.endpoint === row.endpoint),
-            ) ?? subscriptions[0];
+        const sub = subscriptions.find(s => s.endpoint === row.endpoint);
+        if (!sub) continue;
 
         const pushSubscription = {
             endpoint: sub.endpoint,
@@ -114,6 +130,10 @@ export async function GET(req: NextRequest) {
             try {
                 await webpush.sendNotification(pushSubscription, payload);
                 sent++;
+                // Track that we sent for this endpoint today
+                if (!sentEndpoints.includes(row.endpoint)) {
+                    sentEndpoints.push(row.endpoint);
+                }
             } catch (err: unknown) {
                 if (
                     err &&
@@ -130,6 +150,16 @@ export async function GET(req: NextRequest) {
         }
     }
 
+    // Mark today's date on all rows that successfully sent
+    const todayUTC = new Date().toISOString().slice(0, 10);
+    if (sentEndpoints.length > 0) {
+        await supabase
+            .from('bills')
+            .update({ last_sent_date: todayUTC })
+            .in('endpoint', sentEndpoints);
+    }
+
+    // Remove expired subscriptions
     if (expiredEndpoints.length > 0) {
         await supabase
             .from('push_subscriptions')
