@@ -13,21 +13,26 @@ import {
     formatTime12h,
     DEFAULT_NOTIFY_TIME,
 } from "@/lib/notifications";
+
+// All 24 hours as selectable options
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => {
+    const value = `${String(i).padStart(2, "0")}:00`;
+    const label =
+        i === 0
+            ? "12 AM"
+            : i < 12
+              ? `${i} AM`
+              : i === 12
+                ? "12 PM"
+                : `${i - 12} PM`;
+    return { value, label };
+});
 import type { Bill } from "@/lib/types";
 
 interface NotificationPanelProps {
     bills: Bill[];
     onClose: () => void;
 }
-
-const TIME_PRESETS = [
-    { label: "7 AM", value: "07:00" },
-    { label: "8 AM", value: "08:00" },
-    { label: "9 AM", value: "09:00" },
-    { label: "12 PM", value: "12:00" },
-    { label: "5 PM", value: "17:00" },
-    { label: "8 PM", value: "20:00" },
-];
 
 export default function NotificationPanel({
     bills,
@@ -83,11 +88,8 @@ export default function NotificationPanel({
     };
 
     const handleTimeChange = (value: string) => {
-        // Round down to the hour — strip minutes
-        const hour = value.split(":")[0];
-        const rounded = `${hour}:00`;
-        setNotifyTime(rounded);
-        saveNotifyTime(rounded);
+        setNotifyTime(value);
+        saveNotifyTime(value);
         setTimeSaved(true);
         setTimeout(() => setTimeSaved(false), 2000);
     };
@@ -212,7 +214,7 @@ export default function NotificationPanel({
                     />
                 </div>
 
-                {/* Reminder time picker */}
+                {/* Reminder hour slider */}
                 <div
                     style={{
                         background: "var(--surface2)",
@@ -223,95 +225,68 @@ export default function NotificationPanel({
                     }}>
                     <div
                         style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            marginBottom: 12,
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: "var(--text)",
+                            marginBottom: 4,
                         }}>
-                        <div>
-                            <div
-                                style={{
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    color: "var(--text)",
-                                }}>
-                                ⏰ Reminder Time
-                            </div>
-                            <div
-                                style={{
-                                    fontSize: 12,
-                                    color: "var(--muted)",
-                                    marginTop: 2,
-                                }}>
-                                Reminders fire at{" "}
-                                <span
-                                    style={{
-                                        color: "var(--accent)",
-                                        fontWeight: 600,
-                                    }}>
-                                    {formatTime12h(notifyTime)}
-                                </span>
-                                {timeSaved && (
-                                    <span
-                                        style={{
-                                            color: "var(--success)",
-                                            marginLeft: 6,
-                                        }}>
-                                        ✓ saved
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                        <input
-                            type='time'
-                            value={notifyTime}
-                            onChange={e => handleTimeChange(e.target.value)}
-                            style={{
-                                background: "var(--surface)",
-                                border: "1px solid var(--border)",
-                                borderRadius: 8,
-                                padding: "8px 10px",
-                                color: "var(--accent)",
-                                fontFamily: "var(--font-dm-sans)",
-                                fontSize: 14,
-                                fontWeight: 600,
-                                outline: "none",
-                                cursor: "pointer",
-                                colorScheme: "dark",
-                            }}
-                        />
+                        ⏰ Reminder Time
                     </div>
                     <div
                         style={{
-                            display: "grid",
-                            gridTemplateColumns: "repeat(6, 1fr)",
-                            gap: 6,
+                            fontSize: 12,
+                            color: "var(--muted)",
+                            marginBottom: 12,
                         }}>
-                        {TIME_PRESETS.map(preset => (
-                            <button
-                                key={preset.value}
-                                onClick={() => handleTimeChange(preset.value)}
+                        Reminders fire at{" "}
+                        <span
+                            style={{ color: "var(--accent)", fontWeight: 600 }}>
+                            {formatTime12h(notifyTime)}
+                        </span>
+                        {timeSaved && (
+                            <span
                                 style={{
+                                    color: "var(--success)",
+                                    marginLeft: 6,
+                                }}>
+                                ✓ saved
+                            </span>
+                        )}
+                    </div>
+                    <div
+                        style={{
+                            display: "flex",
+                            gap: 6,
+                            overflowX: "auto",
+                            paddingBottom: 4,
+                            scrollbarWidth: "none",
+                        }}>
+                        {HOUR_OPTIONS.map(opt => (
+                            <button
+                                key={opt.value}
+                                onClick={() => handleTimeChange(opt.value)}
+                                style={{
+                                    flexShrink: 0,
                                     background:
-                                        notifyTime === preset.value
+                                        notifyTime === opt.value
                                             ? "rgba(200,169,110,0.2)"
                                             : "var(--surface)",
-                                    border: `1px solid ${notifyTime === preset.value ? "var(--accent)" : "var(--border)"}`,
+                                    border: `1px solid ${notifyTime === opt.value ? "var(--accent)" : "var(--border)"}`,
                                     borderRadius: 8,
-                                    padding: "6px 2px",
+                                    padding: "7px 10px",
                                     color:
-                                        notifyTime === preset.value
+                                        notifyTime === opt.value
                                             ? "var(--accent)"
                                             : "var(--muted)",
-                                    fontSize: 11,
+                                    fontSize: 12,
                                     fontWeight:
-                                        notifyTime === preset.value ? 600 : 400,
+                                        notifyTime === opt.value ? 600 : 400,
                                     fontFamily: "var(--font-dm-sans)",
                                     cursor: "pointer",
                                     transition: "all 0.15s",
-                                    textAlign: "center",
+                                    whiteSpace: "nowrap",
                                 }}>
-                                {preset.label}
+                                {opt.label}
                             </button>
                         ))}
                     </div>

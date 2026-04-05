@@ -30,11 +30,10 @@ function getBillsDueForReminder(bills: Bill[]): Bill[] {
     });
 }
 
-/** Returns true if now is within the 30-minute window of the preferred time */
+/** Returns true if the current UTC hour matches the preferred hour */
 function isWithinNotifyWindow(preferredTime: string): boolean {
     const [prefHour] = preferredTime.split(':').map(Number);
-    const now = new Date();
-    return now.getUTCHours() === prefHour;
+    return new Date().getUTCHours() === prefHour;
 }
 
 export async function GET(req: NextRequest) {
