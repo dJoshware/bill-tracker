@@ -118,6 +118,7 @@ export async function syncBillsToServer(bills: Bill[]): Promise<void> {
                 endpoint: sub.endpoint,
                 bills,
                 notifyTime: getSavedNotifyTime(),
+                utcOffsetMinutes: new Date().getTimezoneOffset(),
             }),
         });
     } catch (e) {
