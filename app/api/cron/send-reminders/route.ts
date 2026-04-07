@@ -40,7 +40,7 @@ function shouldSendNow(
     utcOffsetMinutes: number,
     lastSentDate: string | null,
 ): boolean {
-    const [prefHour] = preferredTime.split(':').map(Number);
+    const [prefHour, prefMinute] = preferredTime.split(':').map(Number);
     const now = new Date();
     const todayUTC = now.toISOString().slice(0, 10); // "YYYY-MM-DD"
 
