@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
 
     const { data: billRows, error: billError } = await supabase
         .from('bills')
-        .select('endpoint, data, notify_time, last_sent_date');
+        .select('endpoint, data, notify_time, utc_offset_minutes, last_sent_date');
 
     if (billError) {
         console.error('Failed to fetch bills:', billError);
