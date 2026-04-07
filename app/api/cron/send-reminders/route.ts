@@ -31,17 +31,13 @@ function getBillsDueForReminder(bills: Bill[]): Bill[] {
 }
 
 /**
- * Returns true if this cron run should send notifications for this row.
- *
- * Rules:
- * - Never send twice on the same calendar day (last_sent_date guard)
- * - Send on the first cron run where the current UTC hour >= preferred hour
- *
- * This means if you set 9 AM at 9:23 AM, the 10:00 AM cron is the first
- * run at-or-after 9, hasn't sent today yet, so it fires. ✅
+ * Converts the user's preferred local time to UTC using their stored
+ * timezone offset, then fires on the first cron run at or after that
+ * UTC hour. Guards against double-sending with last_sent_date.
  */
 function shouldSendNow(
     preferredTime: string,
+    utcOffsetMinutes: number,
     lastSentDate: string | null,
 ): boolean {
     const [prefHour] = preferredTime.split(':').map(Number);
@@ -51,8 +47,14 @@ function shouldSendNow(
     // Already sent today — don't send again
     if (lastSentDate === todayUTC) return false;
 
-    // Send on any cron run at or after the preferred hour
-    return now.getUTCHours() >= prefHour;
+    // Convert preferred local time to UTC
+    // getTimezoneOffset() is positive for zones behind UTC (e.g. Central = 300/360)
+    const prefLocalMinutes = prefHour * 60 + prefMinute;
+    const prefUTCMinutes = prefLocalMinutes + utcOffsetMinutes;
+    const prefUTCHour = Math.floor(prefUTCMinutes / 60) % 24;
+
+    // Fire on first cron run at or after the preffered UTC hour
+    return now.getUTCHours() >= prefUTCHour;
 }
 
 export async function GET(req: NextRequest) {
@@ -93,9 +95,10 @@ export async function GET(req: NextRequest) {
 
     for (const row of billRows ?? []) {
         const notifyTime: string = row.notify_time ?? '09:00';
+        const utcOffsetMinutes: number = row.utc_offset_minutes ?? 0;
         const lastSentDate: string | null = row.last_sent_date ?? null;
 
-        if (!shouldSendNow(notifyTime, lastSentDate)) {
+        if (!shouldSendNow(notifyTime, utcOffsetMinutes, lastSentDate)) {
             skipped++;
             continue;
         }
