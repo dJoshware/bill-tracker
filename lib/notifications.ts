@@ -132,7 +132,12 @@ export async function syncBillsToServer(bills: Bill[]): Promise<void> {
             body: JSON.stringify({
                 endpoint: sub.endpoint,
                 bills,
+<<<<<<< HEAD
                 notifyTime: localTimeToUTC(getSavedNotifyTime()),
+=======
+                notifyTime: getSavedNotifyTime(),
+                utcOffsetMinutes: new Date().getTimezoneOffset(),
+>>>>>>> 96624c826e72f304b633b98d403101e527cb0862
             }),
         });
     } catch (e) {
