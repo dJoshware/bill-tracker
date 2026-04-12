@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
                 endpoint,
                 data: bills,
                 notify_time: notifyTime ?? '09:00',
-                utcOffsetMinutes: utcOffsetMinutes ?? 0,
+                utc_offset_minutes: utcOffsetMinutes ?? 0,
             },
             { onConflict: 'endpoint' },
         );

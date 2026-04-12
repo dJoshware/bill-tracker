@@ -105,21 +105,6 @@ export async function getExistingSubscription(): Promise<PushSubscription | null
 
 // ─── Bill Sync ────────────────────────────────────────────────────────────────
 
-/**
- * Converts a local HH:MM time string to a UTC HH:MM string using the
- * browser's current timezone offset. The cron job compares against UTC
- * hours, so we must store the time in UTC.
- */
-function localTimeToUTC(time: string): string {
-    const [h, m] = time.split(':').map(Number);
-    const now = new Date();
-    // Build a Date on today's date at the given local clock time
-    const local = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
-    const utcH = local.getUTCHours();
-    const utcM = local.getUTCMinutes();
-    return `${String(utcH).padStart(2, '0')}:${String(utcM).padStart(2, '0')}`;
-}
-
 /** Call this whenever bills change so the cron job has the latest schedule */
 export async function syncBillsToServer(bills: Bill[]): Promise<void> {
     const sub = await getExistingSubscription();
@@ -132,7 +117,7 @@ export async function syncBillsToServer(bills: Bill[]): Promise<void> {
             body: JSON.stringify({
                 endpoint: sub.endpoint,
                 bills,
-                notifyTime: localTimeToUTC(getSavedNotifyTime()),
+                notifyTime: getSavedNotifyTime(),
                 utcOffsetMinutes: new Date().getTimezoneOffset(),
             }),
         });
